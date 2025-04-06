@@ -20,12 +20,6 @@ end)
 
 
 
----[[
----   Unfortunately i have not been able to look for a workaround to get
----   the surface and draw libraries be ok the be accessed in the game without returning nil.
----   It was just a micro optimization in cl_draw_meth
----]]
-
 -- This will be much likely be better coded in the future
 -- As im making a gamemode about this
 hook.Add("PostDrawTranslucentRenderables", "denz:RadialResources", function()

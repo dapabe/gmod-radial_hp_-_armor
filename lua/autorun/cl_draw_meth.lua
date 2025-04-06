@@ -18,6 +18,12 @@ local DrawMeth = {
 --- Since this is render code, every little bit counts.
 ---]]
 local sin, cos, rad, floor, clamp, lerp = math.sin, math.cos, math.rad, math.floor, math.Clamp, Lerp
+---[[
+---   Unfortunately i have not been able to look for a workaround to get
+---   the surface and draw libraries be ok the be accessed in the game without returning nil.
+---   It was just a micro optimization in cl_draw_meth
+---]]
+
 
 ---@param x number
 ---@param y number
