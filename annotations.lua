@@ -6,6 +6,9 @@
 ---[CLIENT]
 ---@alias iColorMode "default" | "deuteranopia" | "protanopia" | "tritanopia"
 
+---[SHARED]
+---@alias iRingData {pos: Vector, size: number, alpha: number}
+
 ---@class iRadRing
 ---[CLIENT]
 ---@field private HpCache table<integer, number>
@@ -16,18 +19,16 @@
 ---[CLIENT]
 ---@field private ArmorAnimated table<integer, number>
 ---[CLIENT]
----@field private ColorMode iColorMode
----[CLIENT]
 ---@field private DesiredRingSize number
----[SHARED]
----@field EntityCache table<Entity, {pos: Vector, size: number, alpha: number}>
----[SHARED]
+---[CLIENT]
+---@field EntityCache table<Entity, iRingData>
+---[CLIENT]
 ---@field RecentlyDmgdNPCs table<integer, {ent: Player | NPC, delay: integer}>
 ---[CLIENT]
----@field private DrawOnEntity fun(self: self, ent: Player | NPC) -- INTERNAL. Do not use.
+---@field private DrawRings fun(self: self, ent: Player | NPC, ringData: iRingData, isNPC?: boolean) -- INTERNAL. Do not use.
 ---[CLIENT]
 ---Calculates line of sight, distance from player to target entity and caches for future use and draw
 ---of the target entity (NPC | Player).
----@field DrawRadialHPArmor fun(self: self, baseRadius: number, selfRender: boolean, colorMode: iColorMode)
----[SHARED]
+---@field DrawRadialHPArmor fun(self: self, selfRender: boolean)
+---[CLIENT]
 ---@field TrackDmgdNpc fun(self: self, npc: NPC)
