@@ -1,7 +1,6 @@
+
 ---@type iRadRing
 local RadRing = include("rad_ring.lua")
-
----@type ConVar, ConVar, ConVar, ConVar
 include("cl_cmds.lua")
 
 --- Only hook i know that works with NPCs & Players

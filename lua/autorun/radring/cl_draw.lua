@@ -48,18 +48,23 @@ end
 include("cl_cmds.lua")
 
 local drawColor, noTexture = surface.SetDrawColor, draw.NoTexture
+---@param isFarAway boolean
 ---@param colorScheme Color
 ---@param outerRadius number
 ---@param thickness number
 ---@param startAngle number
 ---@param endAngle number
 ---@param currentPercent number
-function DrawRingBar(colorScheme, outerRadius, thickness, startAngle, endAngle, currentPercent)
+function DrawRingBar(isFarAway, colorScheme, outerRadius, thickness, startAngle, endAngle, currentPercent)
   drawColor(colorScheme)
   -- Interpolate segment count between 6 (low quality) and 100 (smooth) based on currentPercent
   -- Lower segments creates funny shapes and improve performance, hardcoded to 20
   -- I would lower the segments even more for lower end PCs
-  local segments = math.min(floor(lerp(currentPercent, 6, 100)), RingSegments:GetInt())
+  local vertices = math.Clamp(RingSegments:GetInt(), RingSegments:GetMin(), 100)
+  if isFarAway then
+    vertices = math.min(vertices, 8) -- hardcoded probably better to have a distToSqr threshold table
+  end
+  local segments = math.min(floor(lerp(currentPercent, 6, 100)), vertices)
   local points = generateRingPoints(outerRadius, thickness, startAngle, endAngle, segments)
   noTexture()
 

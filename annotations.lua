@@ -17,11 +17,17 @@
 ---@field private ArmorAnimated table<integer, number>
 ---[CLIENT]
 ---@field private ColorMode iColorMode
+---[CLIENT]
+---@field private DesiredRingSize number
+---[SHARED]
+---@field EntityCache table<Entity, {pos: Vector, size: number, alpha: number}>
 ---[SHARED]
 ---@field RecentlyDmgdNPCs table<integer, {ent: Player | NPC, delay: integer}>
 ---[CLIENT]
 ---@field private DrawOnEntity fun(self: self, ent: Player | NPC) -- INTERNAL. Do not use.
 ---[CLIENT]
+---Calculates line of sight, distance from player to target entity and caches for future use and draw
+---of the target entity (NPC | Player).
 ---@field DrawRadialHPArmor fun(self: self, baseRadius: number, selfRender: boolean, colorMode: iColorMode)
 ---[SHARED]
----@field TrackDmgdEntity fun(self: self, ent: Player | NPC)
+---@field TrackDmgdNpc fun(self: self, npc: NPC)

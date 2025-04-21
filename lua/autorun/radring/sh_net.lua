@@ -1,22 +1,31 @@
-util.AddNetworkString("RadRing:Track")
 
+--- Declared client events first, separated server events at the bottom
+--- Server variables declared at the top
 ---@type iRadRing
 local RadRing = include("rad_ring.lua")
 
+local NetIdTrack = "RadRing:Track"
 
--- net.Receive("RadRing:Track", function()
---   local ent = net.ReadEntity()
---   if not IsValid(ent) and not ent:IsNPC() or not ent:IsPlayer() then return end
 
---   RadRing:TrackDmgdEntity(ent --[[@as Player | NPC]])
--- end)
+net.Receive(NetIdTrack, function()
+  local index = net.ReadUInt(8)
+  local ent = Entity(index)
+  if not IsValid(ent) then return end
+  RadRing:TrackDmgdNpc(ent --[[@as NPC]])
+end)
+
+if CLIENT then return end
+
+util.AddNetworkString(NetIdTrack)
 
 
 hook.Add("EntityTakeDamage", "denz:TrackDamagedEntities", function(target)
   if not (IsValid(target) or target:IsNPC()) then return end
   if target.Health and target:Health() <= 0 then return end
 
-  RadRing:TrackDmgdEntity(target)
+  net.Start(NetIdTrack)
+  net.WriteUInt((target --[[@as NPC]]):EntIndex(), 8)
+  net.Broadcast()
 end)
 
 
