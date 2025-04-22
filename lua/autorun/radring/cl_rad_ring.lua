@@ -1,7 +1,6 @@
 if SERVER then return end
 
----@type iColorSchemes
-local COLOR_SCHEMES = include("cl_schemes.lua")
+include("cl_constants.lua")
 include("cl_draw.lua")
 
 ---@class iRadRing
@@ -12,7 +11,6 @@ local RadRing = {
   ArmorCache = {},
   HpAnimated = {},
   ArmorAnimated = {},
-  DesiredRingSize = PersistentBaseRadius:GetFloat()
 }
 
 function RadRing:TrackDmgdNpc(npc)
@@ -20,26 +18,23 @@ function RadRing:TrackDmgdNpc(npc)
   if not self.RecentlyDmgdNPCs[id] then
     self.RecentlyDmgdNPCs[id] = {
       ent = npc,
-      delay = CurTime() + 4,
+      delay = CurTime() + 8,
     }
   end
   -- Update
-  self.RecentlyDmgdNPCs[id].delay = CurTime() + 4
+  self.RecentlyDmgdNPCs[id].delay = CurTime() + 8
 end
 
 local clamp, lerp = math.Clamp, Lerp
 
-local pixelVisibleHandle = util.GetPixelVisibleHandle()
-local diskLocation = vector_up
 local defBgAlpha = 180
 local thickness = 6
 local extraBgDraw = 1
-local maxDistSqr = 2250000 -- 1500^2 for npcs
 
 
-function RadRing:DrawRings(ent, ringData, isNPC)
+function RadRing:DrawRings(ent, ringData)
   local id = ent:EntIndex()
-  local frame = FrameTime()
+  local frame = RealFrameTime()
 
   -- Animate HP: Interpolate from the previous animated value to the current hpPercent.
   local currentHp = 0
@@ -64,93 +59,95 @@ function RadRing:DrawRings(ent, ringData, isNPC)
   end
 
   local bgFullRad = ringData.size + thickness + extraBgDraw
-  local scheme = COLOR_SCHEMES[ColorScheme:GetString()]
+  local scheme = COLOR_SCHEMES[ColorScheme:GetString() or ColorScheme:GetDefault()]
+  local pos = ent:GetPos()
 
-  cam.Start3D2D(ringData.pos, angle_zero, 0.4) -- Scale on 1 its ugly
+  cam.Start3D2D(pos, angle_zero, 0.4) -- Scale on 1 its ugly
     -- Background disk
-    DrawRingBar(isNPC, Color(60, 60, 60, ringData.alpha), bgFullRad, bgFullRad, 0, 360, extraBgDraw)
+    DrawRingBar(pos, Color(60, 60, 60, ringData.alpha), bgFullRad, bgFullRad, 0, 360, extraBgDraw)
     if ent:Alive() then
       -- Armor ring
-      DrawRingBar(isNPC, scheme.Armor, ringData.size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
+      DrawRingBar(pos, scheme.Armor, ringData.size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
       -- Health ring 
-      DrawRingBar(isNPC, scheme.HP, ringData.size, thickness * 2, 0, 360 * animatedHp, animatedHp)
+      DrawRingBar(pos, scheme.HP, ringData.size, thickness * 2, 0, 360 * animatedHp, animatedHp)
     end
   cam.End3D2D()
 end
 
 ---@param pl Player
 local function DrawOnPlayer(pl)
-  local frame = FrameTime()
+  local me = LocalPlayer()
+  local hasLineOfSight = me:GetEyeTrace().Entity == pl
+  local isCloser = me:GetPos():DistToSqr(pl:GetPos()) <= DistanceThreshold.Small[1]
 
   local ringData = RadRing.EntityCache[pl]
   if not ringData then return end
+  local frame = RealFrameTime()
 
-  -- If the player is dead, fade out the ring
+  local fadeIn = math.min(ringData.alpha + (frame * 100), defBgAlpha)
+  local fadeOut = math.max(ringData.alpha - (frame * 100), 0)
+
   if not pl:Alive() then
-    ringData.alpha = math.max(ringData.alpha - (frame * 100), 0)
+    ringData.alpha = fadeOut
     if ringData.alpha <= 0 then
-      RadRing.EntityCache[pl] = nil
+      -- Stop rendering but keep the cache
       return
     end
+  end
+
+  -- Handle normal visibility logic
+  if me == pl then
+    RadRing:DrawRings(pl, ringData)
+    return
+  end
+
+  if hasLineOfSight or isCloser then
+    ringData.alpha = fadeIn
   else
-    -- Reset alpha if the player is alive
-    ringData.alpha = defBgAlpha
-  end
-
-  -- Check distance and line of sight
-  local me = LocalPlayer()
-  local distSqr = me:GetPos():DistToSqr(pl:GetPos())
-  local hasLineOfSight = me:GetEyeTrace().Entity == pl
-  local isFarAway = distSqr > maxDistSqr
-
-  -- Fade out if out of line of sight or too far away
-  if not hasLineOfSight or isFarAway then
-    ringData.alpha = math.max(ringData.alpha - (frame * 100), 0)
+    ringData.alpha = fadeOut
     if ringData.alpha <= 0 then
-      RadRing.EntityCache[pl] = nil
+      -- Stop rendering but keep the cache
       return
     end
   end
+  
 
+  -- Draw the ring
   RadRing:DrawRings(pl, ringData)
 end
 ---@param npc NPC
 local function DrawOnNPC(npc)
-  local id = npc:EntIndex()
-  local frame = FrameTime()
+  local me = LocalPlayer()
+  local hasLineOfSight = me:GetEyeTrace().Entity == npc
+  local isCloser = me:GetPos():DistToSqr(npc:GetPos()) <= DistanceThreshold.Small[1]
 
   local ringData = RadRing.EntityCache[npc]
   if not ringData then return end
+  local frame = RealFrameTime()
+  local fadeIn = math.min(ringData.alpha + (frame * 100), defBgAlpha)
+  local fadeOut = math.max(ringData.alpha - (frame * 100), 0)
+  
+  -- Npcs should be in distance to draw and have received damage or in LoS
+  local dmgData = RadRing.RecentlyDmgdNPCs[npc:EntIndex()]
 
-
-  -- Check if the NPC is recently damaged
-  local dmgData = RadRing.RecentlyDmgdNPCs[id]
   if dmgData then
-    -- Remove NPC from RecentlyDmgdNPCs if the delay expired
-    if CurTime() > dmgData.delay then
-      RadRing.RecentlyDmgdNPCs[id] = nil
-    else
-      -- Reset alpha if recently damaged
-      ringData.alpha = defBgAlpha
-    end
-  end
-
-  -- Check distance and line of sight
-  local me = LocalPlayer()
-  local distSqr = me:GetPos():DistToSqr(npc:GetPos())
-  local hasLineOfSight = me:GetEyeTrace().Entity == npc
-  local isFarAway = distSqr > maxDistSqr
-
-  -- Fade out if not recently damaged, out of line of sight, or too far away
-  if not dmgData or not hasLineOfSight or isFarAway then
-    ringData.alpha = math.max(ringData.alpha - (frame * 100), 0)
-    if ringData.alpha <= 0 then
-      RadRing.EntityCache[npc] = nil
+    print(dmgData.ent)
+    if dmgData.delay < CurTime() then
       return
     end
   end
 
-  RadRing:DrawRings(npc, ringData, true)
+  -- Adjust visibility logic
+  if hasLineOfSight or (isCloser and dmgData) then
+    ringData.alpha = defBgAlpha
+  else
+    -- Fade out if conditions are not met
+    ringData.alpha = fadeOut
+    if ringData.alpha <= 0 then return end
+  end
+
+  -- Draw the ring
+  RadRing:DrawRings(npc, ringData)
 end
 
 
@@ -159,11 +156,10 @@ end
 local function CacheEntLocally(ent)
   if RadRing.EntityCache[ent] then return end
   RadRing.EntityCache[ent] = {
-    pos = ent:GetPos() + diskLocation,
-    size = ent:OBBMaxs():Length2D() + RadRing.DesiredRingSize,
+    size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
     alpha = defBgAlpha,
   }
-  timer.Create("RadRing:Cache"..ent:EntIndex(), 0, 0, function()
+  timer.Create("RadRing:Cache"..ent:EntIndex(), 5, 0, function()
     if not IsValid(ent) then
       timer.Remove("RadRing:Cache"..ent:EntIndex())
       RadRing.EntityCache[ent] = nil
@@ -174,35 +170,30 @@ local function CacheEntLocally(ent)
       timer.Remove("RadRing:Cache"..ent:EntIndex())
       return
     end
-
-    RadRing.EntityCache[ent].pos = ent:GetPos() + diskLocation
   end)
 end
 
 function RadRing:DrawRadialHPArmor(selfRender)
+  local me = LocalPlayer()
   for _, ent in ents.Iterator() do
     if not IsValid(ent) then continue end
     if not (ent:IsNPC() or ent:IsPlayer()) then continue end
     
-    ---@type number
-    local visibility
-
     CacheEntLocally(ent)
-    if ent:IsNPC() then
+    if ent ~= me then
       if ent:GetNoDraw() or ent:IsDormant() then continue end
-      visibility = util.PixelVisible(ent:GetPos(), 1, pixelVisibleHandle)
-      if not visibility or visibility <= 0 then continue end
+      if not ent:GetPos():ToScreen().visible then continue end
+    end
+
+    
+      
+    if ent:IsNPC() then
       DrawOnNPC(ent)
     else
-      if ent == LocalPlayer() then
-        if not LocalPlayer():ShouldDrawLocalPlayer() or not selfRender then continue end
-        DrawOnPlayer(ent)
-      else
-        if ent:GetNoDraw() or ent:IsDormant() then continue end
-        visibility = util.PixelVisible(ent:GetPos(), 1, pixelVisibleHandle)
-        if not visibility or visibility <= 0 then continue end
-        DrawOnPlayer(ent)
+      if ent == me then
+        if not me:ShouldDrawLocalPlayer() or not selfRender then continue end
       end
+      DrawOnPlayer(ent)
     end
   end
 end

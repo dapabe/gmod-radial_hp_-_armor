@@ -1,7 +1,7 @@
 AddCSLuaFile()
 
 if SERVER then
-  AddCSLuaFile("autorun/radring/cl_schemes.lua")
+  AddCSLuaFile("autorun/radring/cl_constants.lua")
   AddCSLuaFile("autorun/radring/cl_cmds.lua")
   AddCSLuaFile("autorun/radring/cl_draw.lua")
   AddCSLuaFile("autorun/radring/sh_caches.lua")

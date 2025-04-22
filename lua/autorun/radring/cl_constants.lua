@@ -1,8 +1,15 @@
 if SERVER then return end
---- Supposedly Color() is expensive, looking for a workaround to avoid it.
+
+
+--- Sqr2 | Vertices
+DistanceThreshold = {
+  Small = {2250000, 10}, -- 1500^2 
+  Medium = {4000000, 8}, -- 2000^2
+  Large = {6250000, 6}, -- 2500^2
+}
 
 ---@type iColorSchemes
-local COLOR_SCHEMES = {
+COLOR_SCHEMES = {
   default = {
     HP = Color(255, 0, 0),
     Armor = Color(0, 150, 255),
@@ -20,5 +27,3 @@ local COLOR_SCHEMES = {
     Armor = Color(255, 255, 0),    -- Yellow
   },
 }
-
-return COLOR_SCHEMES
