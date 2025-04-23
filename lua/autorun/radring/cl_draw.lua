@@ -40,7 +40,7 @@ end
 
 
 include("cl_cmds.lua")
-include("cl_constants.lua")
+include("sh_constants.lua")
 
 local drawColor, noTexture = surface.SetDrawColor, draw.NoTexture
 ---@param targetPos Vector

@@ -11,7 +11,7 @@ hook.Add("ShutDown","RadRing:ShutDown", function()
 end)
 
 
-if CLIENT then return end
+if SERVER then return end
 
 ---@type iRadRing
 local RadRing = include("cl_rad_ring.lua")

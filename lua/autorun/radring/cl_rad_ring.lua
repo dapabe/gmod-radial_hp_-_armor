@@ -1,16 +1,16 @@
 if SERVER then return end
 
-include("cl_constants.lua")
+include("sh_constants.lua")
 include("cl_draw.lua")
 
 ---@class iRadRing
 local RadRing = {
-  RecentlyDmgdNPCs = {},
   EntityCache = {},
   HpCache = {},
   ArmorCache = {},
   HpAnimated = {},
   ArmorAnimated = {},
+  RecentlyDmgdNPCs = {},
 }
 
 function RadRing:TrackDmgdNpc(npc)
@@ -130,16 +130,10 @@ local function DrawOnNPC(npc)
   -- Npcs should be in distance to draw and have received damage or in LoS
   local dmgData = RadRing.RecentlyDmgdNPCs[npc:EntIndex()]
 
-  if dmgData then
-    print(dmgData.ent)
-    if dmgData.delay < CurTime() then
-      return
-    end
-  end
-
   -- Adjust visibility logic
-  if hasLineOfSight or (isCloser and dmgData) then
-    ringData.alpha = defBgAlpha
+  if hasLineOfSight or isCloser and dmgData and CurTime() < dmgData.delay then
+    -- NPC has received damage and is either close or in line of sight
+    ringData.alpha = fadeIn
   else
     -- Fade out if conditions are not met
     ringData.alpha = fadeOut
@@ -197,5 +191,20 @@ function RadRing:DrawRadialHPArmor(selfRender)
     end
   end
 end
+
+net.Receive(NetIds.Track, function()
+  local index = net.ReadUInt(8)
+  local ent = Entity(index)
+  if not IsValid(ent) then return end
+  RadRing:TrackDmgdNpc(ent --[[@as NPC]])
+  
+end)
+
+net.Receive(NetIds.Dead, function ()
+  local index = net.ReadUInt(8)
+  local ent = Entity(index)
+  if not IsValid(ent) then return end
+  RadRing.RecentlyDmgdNPCs[index] = nil
+end)
 
 return RadRing

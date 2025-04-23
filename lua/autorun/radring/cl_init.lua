@@ -1,4 +1,4 @@
-
+if SERVER then return end
 include("cl_cmds.lua")
 ---@type iRadRing
 local RadRing = include("cl_rad_ring.lua")

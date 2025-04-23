@@ -1,6 +1,6 @@
 if SERVER then return end
 
-include("cl_constants.lua")
+include("sh_constants.lua")
 
 PersistentBaseRadius = CreateClientConVar("cl_radialdisk_size", "25", true, true, "Base radial size, 0 is the target's collision box", 0)
 ToggleRadialDisk = CreateClientConVar("cl_radialdisk_toggle", "1", true, true, "Toggle the radial disk", 0, 1)

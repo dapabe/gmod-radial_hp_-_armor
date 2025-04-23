@@ -1,6 +1,12 @@
+
+
+NetIds = {
+  Track = "RadRing:Track",
+  Dead = "RadRing:Dead",
+}
+
+
 if SERVER then return end
-
-
 --- Sqr2 | Vertices
 DistanceThreshold = {
   Small = {2250000, 10}, -- 1500^2 
@@ -27,3 +33,4 @@ COLOR_SCHEMES = {
     Armor = Color(255, 255, 0),    -- Yellow
   },
 }
+
