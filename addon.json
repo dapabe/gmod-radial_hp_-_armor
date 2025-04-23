@@ -2,5 +2,5 @@
 	"title": "Radial HP & Armor",
 	"type": "effects",
 	"tags": ["cartoon", "roleplay"],
-	"ignore": [".vscode"]
+	"ignore": [".vscode", ".git", "./annotations.lua"]
 }

@@ -182,6 +182,7 @@ function RadRing:DrawRadialHPArmor(selfRender)
     
       
     if ent:IsNPC() then
+      if not ToggleNPCDisks:GetBool() then continue end
       DrawOnNPC(ent)
     else
       if ent == me then

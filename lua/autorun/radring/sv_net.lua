@@ -1,6 +1,3 @@
---- Declared client events first, separated server events at the bottom
---- Server variables declared at the top
-
 include("sh_constants.lua")
 
 if SERVER then
