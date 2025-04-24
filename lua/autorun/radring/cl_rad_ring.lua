@@ -184,7 +184,7 @@ local function CacheEntLocally(ent)
     -- size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
     alpha = defBgAlpha,
   }
-  timer.Create("RadRing:Cache"..ent:EntIndex(), 1, 0, function()
+  timer.Create("RadRing:Cache"..ent:EntIndex(), 5, 0, function()
     if not IsValid(ent) then
       timer.Remove("RadRing:Cache"..ent:EntIndex())
       RadRing.EntityCache[ent] = nil
@@ -231,13 +231,6 @@ net.Receive(NetIds.Track, function()
   if not IsValid(ent) then return end
   RadRing:TrackDmgdNpc(ent --[[@as NPC]])
   
-end)
-
-net.Receive(NetIds.Dead, function ()
-  local index = net.ReadUInt(8)
-  local ent = Entity(index)
-  if not IsValid(ent) then return end
-  RadRing.RecentlyDmgdNPCs[index] = nil
 end)
 
 return RadRing

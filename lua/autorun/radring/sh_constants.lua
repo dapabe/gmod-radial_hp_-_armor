@@ -2,7 +2,6 @@
 
 NetIds = {
   Track = "RadRing:Track",
-  Dead = "RadRing:Dead",
 }
 
 
