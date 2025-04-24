@@ -12,17 +12,17 @@ local RadRing = {
   ArmorAnimated = {},
   RecentlyDmgdNPCs = {},
 }
-
+local secondsToDisappear = 20
 function RadRing:TrackDmgdNpc(npc)
   local id = npc:EntIndex()
   if not self.RecentlyDmgdNPCs[id] then
     self.RecentlyDmgdNPCs[id] = {
       ent = npc,
-      delay = CurTime() + 8,
+      delay = CurTime() + secondsToDisappear,
     }
   end
   -- Update
-  self.RecentlyDmgdNPCs[id].delay = CurTime() + 8
+  self.RecentlyDmgdNPCs[id].delay = CurTime() + secondsToDisappear
 end
 
 local clamp, lerp = math.Clamp, Lerp
@@ -32,44 +32,80 @@ local thickness = 6
 local extraBgDraw = 1
 
 
-function RadRing:DrawRings(ent, ringData)
+
+---@param ent Entity
+---@return Angle
+local function GetRadialRingAngle(ent)
+  local entHeight = ent:GetPos().z + ent:OBBCenter().z
+  local eyeHeight = LocalPlayer():EyePos().z
+  local shouldBillboard = eyeHeight < entHeight - 20 -- allow a little buffer
+
+  local angleToUse = angle_zero
+  if shouldBillboard then
+    local toEye = (LocalPlayer():EyePos() - ent:GetPos()):Angle()
+    toEye:RotateAroundAxis(toEye:Right(), 90)
+    angleToUse = toEye
+  end
+  return angleToUse
+end
+
+---@param ent Entity
+---@return number
+local function GetEntitySize(ent)
+  local minRingSize = 20
+  -- Calculate the size of the ring based on the average of the x and y dimensions
+  local bounds = ent:OBBMaxs() - ent:OBBMins()
+  local size = math.max((bounds.x + bounds.y) / 2, minRingSize) -- Use the average of x and y, but enforce a minimum size
+  return size
+end
+
+---Interpolate from the previous animated value to the current resource percent.
+---@param ent NPC | Player
+---@return number, number
+local function GetResourceInterpolation(ent)
   local id = ent:EntIndex()
   local frame = RealFrameTime()
 
-  -- Animate HP: Interpolate from the previous animated value to the current hpPercent.
-  local currentHp = 0
   local animatedHp = 0
   if ent.Health and ent:Health() > 0 then
     local maxHealth = ent:GetMaxHealth()
     local hpPercent = clamp(ent:Health(), 0, maxHealth) / maxHealth
-    currentHp = self.HpAnimated[id] or hpPercent
+    local currentHp = RadRing.HpAnimated[id] or hpPercent
     animatedHp = lerp(frame * 10, currentHp, hpPercent)
-    self.HpAnimated[id] = animatedHp
+    RadRing.HpAnimated[id] = animatedHp
   end
 
-  -- Animate Armor: Interpolate from the previous animated value to the current armorPercent.
-  local currentArmor = 0
   local animatedArmor = 0
   -- Some addons make npcs have armor? idk
   if ent.Armor and ent:Armor() > 0 then
-    local armorPercent = clamp(ent:Armor(), 0, 100) / 100
-    currentArmor = self.ArmorAnimated[id] or armorPercent
+    local maxArmor = ent.GetMaxArmor and ent:GetMaxArmor() or 100 -- Ternary
+    local armorPercent = clamp(ent:Armor(), 0, maxArmor) / maxArmor
+    local currentArmor = RadRing.ArmorAnimated[id] or armorPercent
     animatedArmor = lerp(frame * 10, currentArmor, armorPercent)
-    self.ArmorAnimated[id] = animatedArmor
+    RadRing.ArmorAnimated[id] = animatedArmor
   end
+  
+  return animatedHp, animatedArmor
+end
 
-  local bgFullRad = ringData.size + thickness + extraBgDraw
+function RadRing:DrawRings(ent, ringData)
+  local animatedHp, animatedArmor = GetResourceInterpolation(ent)
+
+  local size = GetEntitySize(ent)
+  local bgFullRad = size + (ent.Armor and thickness or 0) + extraBgDraw
   local scheme = COLOR_SCHEMES[ColorScheme:GetString() or ColorScheme:GetDefault()]
   local pos = ent:GetPos()
 
-  cam.Start3D2D(pos, angle_zero, 0.4) -- Scale on 1 its ugly
+  local hpPos = ent.Armor and thickness * 1.5 or thickness
+
+  cam.Start3D2D(pos, GetRadialRingAngle(ent), 1)
     -- Background disk
     DrawRingBar(pos, Color(60, 60, 60, ringData.alpha), bgFullRad, bgFullRad, 0, 360, extraBgDraw)
     if ent:Alive() then
       -- Armor ring
-      DrawRingBar(pos, scheme.Armor, ringData.size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
+      DrawRingBar(pos, scheme.Armor, size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
       -- Health ring 
-      DrawRingBar(pos, scheme.HP, ringData.size, thickness * 2, 0, 360 * animatedHp, animatedHp)
+      DrawRingBar(pos, scheme.HP, size, hpPos, 0, 360 * animatedHp, animatedHp)
     end
   cam.End3D2D()
 end
@@ -89,14 +125,12 @@ local function DrawOnPlayer(pl)
 
   if not pl:Alive() then
     ringData.alpha = fadeOut
-    if ringData.alpha <= 0 then
-      -- Stop rendering but keep the cache
-      return
-    end
+    if ringData.alpha <= 0 then return end
   end
 
   -- Handle normal visibility logic
   if me == pl then
+    -- ringData.alpha = defBgAlpha
     RadRing:DrawRings(pl, ringData)
     return
   end
@@ -105,10 +139,7 @@ local function DrawOnPlayer(pl)
     ringData.alpha = fadeIn
   else
     ringData.alpha = fadeOut
-    if ringData.alpha <= 0 then
-      -- Stop rendering but keep the cache
-      return
-    end
+    if ringData.alpha <= 0 then return end
   end
   
 
@@ -150,10 +181,10 @@ end
 local function CacheEntLocally(ent)
   if RadRing.EntityCache[ent] then return end
   RadRing.EntityCache[ent] = {
-    size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
+    -- size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
     alpha = defBgAlpha,
   }
-  timer.Create("RadRing:Cache"..ent:EntIndex(), 5, 0, function()
+  timer.Create("RadRing:Cache"..ent:EntIndex(), 1, 0, function()
     if not IsValid(ent) then
       timer.Remove("RadRing:Cache"..ent:EntIndex())
       RadRing.EntityCache[ent] = nil
@@ -172,7 +203,8 @@ function RadRing:DrawRadialHPArmor(selfRender)
   for _, ent in ents.Iterator() do
     if not IsValid(ent) then continue end
     if not (ent:IsNPC() or ent:IsPlayer()) then continue end
-    
+    if ent:Alive() and ent.Health and ent:Health() <= 0 then continue end -- Rollermine, etc
+
     CacheEntLocally(ent)
     if ent ~= me then
       if ent:GetNoDraw() or ent:IsDormant() then continue end
