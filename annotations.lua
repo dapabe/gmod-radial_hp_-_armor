@@ -7,7 +7,7 @@
 ---@alias iColorSchemes table<iColorMode, {HP: Color, Armor: Color}>
 
 ---[SHARED]
----@alias iRingData {size: number, alpha: number}
+---@alias iRingData {bgAlpha: number, otherAlpha: number}
 
 ---@class iRadRing
 ---[CLIENT]

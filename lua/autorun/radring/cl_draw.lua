@@ -6,13 +6,13 @@ if SERVER then return end
 local sin,
 cos,
 rad,
-floor,
-lerp =
+lerp,
+drawPoly =
 math.sin,
 math.cos,
 math.rad,
-math.floor,
-Lerp
+Lerp,
+surface.DrawPoly
 
 ---@param radius number
 ---@param thickness number
@@ -67,12 +67,12 @@ function DrawRingBar(targetPos, colorScheme, outerRadius, thickness, startAngle,
     end
   end
 
-  local segments = math.min(floor(lerp(currentPercent, 6, 100)), vertices)
-  local points = generateRingPoints(outerRadius, thickness, startAngle, endAngle, segments)
+  -- local segments = math.min(floor(lerp(currentPercent, 6, 100)), vertices)
+  local points = generateRingPoints(outerRadius, thickness, startAngle, endAngle, vertices)
   noTexture()
 
   for i = 1, #points - 1 do
-    surface.DrawPoly({
+    drawPoly({
       points[i].outer,
       points[i + 1].outer,
       points[i + 1].inner,

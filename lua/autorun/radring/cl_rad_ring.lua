@@ -12,7 +12,7 @@ local RadRing = {
   ArmorAnimated = {},
   RecentlyDmgdNPCs = {},
 }
-local secondsToDisappear = 20
+local secondsToDisappear = 6
 function RadRing:TrackDmgdNpc(npc)
   local id = npc:EntIndex()
   if not self.RecentlyDmgdNPCs[id] then
@@ -28,8 +28,10 @@ end
 local clamp, lerp = math.Clamp, Lerp
 
 local defBgAlpha = 180
+local defOtherAlpha = 255
 local thickness = 6
-local extraBgDraw = 1
+local extraBgDraw = 0.8
+local maxEntitySize = 50
 
 
 
@@ -37,16 +39,14 @@ local extraBgDraw = 1
 ---@return Angle
 local function GetRadialRingAngle(ent)
   local entHeight = ent:GetPos().z + ent:OBBCenter().z
-  local eyeHeight = LocalPlayer():EyePos().z
-  local shouldBillboard = eyeHeight < entHeight - 20 -- allow a little buffer
+  local eye = LocalPlayer():EyePos()
 
-  local angleToUse = angle_zero
-  if shouldBillboard then
-    local toEye = (LocalPlayer():EyePos() - ent:GetPos()):Angle()
-    toEye:RotateAroundAxis(toEye:Right(), 90)
-    angleToUse = toEye
+  -- Check if the entity is above the player's eye level
+  if entHeight < eye.z then
+   return angle_zero
+  else
+    return Angle(180,0,0)
   end
-  return angleToUse
 end
 
 ---@param ent Entity
@@ -55,7 +55,13 @@ local function GetEntitySize(ent)
   local minRingSize = 20
   -- Calculate the size of the ring based on the average of the x and y dimensions
   local bounds = ent:OBBMaxs() - ent:OBBMins()
-  local size = math.max((bounds.x + bounds.y) / 2, minRingSize) -- Use the average of x and y, but enforce a minimum size
+  local size = math.max((bounds.x + bounds.y) / 2, minRingSize)
+
+  if ent:IsPlayer() then
+    -- Scale it down
+    size = size * 0.7
+  end
+
   return size
 end
 
@@ -92,15 +98,19 @@ function RadRing:DrawRings(ent, ringData)
   local animatedHp, animatedArmor = GetResourceInterpolation(ent)
 
   local size = GetEntitySize(ent)
-  local bgFullRad = size + (ent.Armor and thickness or 0) + extraBgDraw
   local scheme = COLOR_SCHEMES[ColorScheme:GetString() or ColorScheme:GetDefault()]
   local pos = ent:GetPos()
-
+  
+  
   local hpPos = ent.Armor and thickness * 1.5 or thickness
+  local bgFullRad = size + (ent.Armor and thickness or 0) + extraBgDraw
+  local bgThickness = (ent.Armor and thickness + hpPos or hpPos) + (extraBgDraw * 2)
+  scheme.Armor.a = ringData.otherAlpha
+  scheme.HP.a = ringData.otherAlpha
 
   cam.Start3D2D(pos, GetRadialRingAngle(ent), 1)
     -- Background disk
-    DrawRingBar(pos, Color(60, 60, 60, ringData.alpha), bgFullRad, bgFullRad, 0, 360, extraBgDraw)
+    DrawRingBar(pos, Color(60, 60, 60, ringData.bgAlpha), bgFullRad, bgThickness, 0, 360, extraBgDraw)
     if ent:Alive() then
       -- Armor ring
       DrawRingBar(pos, scheme.Armor, size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
@@ -120,30 +130,26 @@ local function DrawOnPlayer(pl)
   if not ringData then return end
   local frame = RealFrameTime()
 
-  local fadeIn = math.min(ringData.alpha + (frame * 100), defBgAlpha)
-  local fadeOut = math.max(ringData.alpha - (frame * 100), 0)
+  local otherFadeIn = math.min(ringData.otherAlpha + (frame * 100), defOtherAlpha)
+  local otherFadeOut = math.max(ringData.otherAlpha - (frame * 100), 0)
+  local bgFadeIn = math.min(ringData.bgAlpha + (frame * 100), defBgAlpha)
+  local bgFadeOut = math.max(ringData.bgAlpha - (frame * 100), 0)
 
   if not pl:Alive() then
-    ringData.alpha = fadeOut
-    if ringData.alpha <= 0 then return end
-  end
-
-  -- Handle normal visibility logic
-  if me == pl then
-    -- ringData.alpha = defBgAlpha
-    RadRing:DrawRings(pl, ringData)
-    return
-  end
-
-  if hasLineOfSight or isCloser then
-    ringData.alpha = fadeIn
+    -- Fade out when the player is dead
+    ringData.bgAlpha = bgFadeOut
+    ringData.otherAlpha = otherFadeOut
+  elseif hasLineOfSight or isCloser then
+    -- Fade in when the player is alive and visible
+    ringData.bgAlpha = bgFadeIn
+    ringData.otherAlpha = otherFadeIn
   else
-    ringData.alpha = fadeOut
-    if ringData.alpha <= 0 then return end
+    -- Fade out when the player is alive but not visible
+    ringData.bgAlpha = bgFadeOut
+    ringData.otherAlpha = otherFadeOut
   end
-  
+  if ringData.bgAlpha <= 0 then return end
 
-  -- Draw the ring
   RadRing:DrawRings(pl, ringData)
 end
 ---@param npc NPC
@@ -155,8 +161,10 @@ local function DrawOnNPC(npc)
   local ringData = RadRing.EntityCache[npc]
   if not ringData then return end
   local frame = RealFrameTime()
-  local fadeIn = math.min(ringData.alpha + (frame * 100), defBgAlpha)
-  local fadeOut = math.max(ringData.alpha - (frame * 100), 0)
+  local otherFadeIn = math.min(ringData.otherAlpha + (frame * 100), defOtherAlpha)
+  local otherFadeOut = math.max(ringData.otherAlpha - (frame * 100), 0)
+  local bgFadeIn = math.min(ringData.bgAlpha + (frame * 100), defBgAlpha)
+  local bgFadeOut = math.max(ringData.bgAlpha - (frame * 100), 0)
   
   -- Npcs should be in distance to draw and have received damage or in LoS
   local dmgData = RadRing.RecentlyDmgdNPCs[npc:EntIndex()]
@@ -164,14 +172,15 @@ local function DrawOnNPC(npc)
   -- Adjust visibility logic
   if hasLineOfSight or isCloser and dmgData and CurTime() < dmgData.delay then
     -- NPC has received damage and is either close or in line of sight
-    ringData.alpha = fadeIn
+    ringData.bgAlpha = bgFadeIn
+    ringData.otherAlpha = otherFadeIn
   else
     -- Fade out if conditions are not met
-    ringData.alpha = fadeOut
-    if ringData.alpha <= 0 then return end
+    ringData.bgAlpha = bgFadeOut
+    ringData.otherAlpha = otherFadeOut
+    if ringData.bgAlpha <= 0 then return end
   end
 
-  -- Draw the ring
   RadRing:DrawRings(npc, ringData)
 end
 
@@ -182,7 +191,8 @@ local function CacheEntLocally(ent)
   if RadRing.EntityCache[ent] then return end
   RadRing.EntityCache[ent] = {
     -- size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
-    alpha = defBgAlpha,
+    bgAlpha = defBgAlpha,
+    otherAlpha = defOtherAlpha,
   }
   timer.Create("RadRing:Cache"..ent:EntIndex(), 5, 0, function()
     if not IsValid(ent) then
