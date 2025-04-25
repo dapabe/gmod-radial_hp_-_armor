@@ -30,8 +30,7 @@ local clamp, lerp = math.Clamp, Lerp
 local defBgAlpha = 180
 local defOtherAlpha = 255
 local thickness = 6
-local extraBgDraw = 0.8
-local maxEntitySize = 50
+local extraBgDraw = 1
 
 
 
@@ -110,12 +109,12 @@ function RadRing:DrawRings(ent, ringData)
 
   cam.Start3D2D(pos, GetRadialRingAngle(ent), 1)
     -- Background disk
-    DrawRingBar(pos, Color(60, 60, 60, ringData.bgAlpha), bgFullRad, bgThickness, 0, 360, extraBgDraw)
+    DrawRingBar(Color(60, 60, 60, ringData.bgAlpha), bgFullRad, bgThickness, 0, 360, extraBgDraw)
     if ent:Alive() then
       -- Armor ring
-      DrawRingBar(pos, scheme.Armor, size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
+      DrawRingBar(scheme.Armor, size + thickness, thickness, 0, 360 * animatedArmor, animatedArmor)
       -- Health ring 
-      DrawRingBar(pos, scheme.HP, size, hpPos, 0, 360 * animatedHp, animatedHp)
+      DrawRingBar(scheme.HP, size, hpPos, 0, 360 * animatedHp, animatedHp)
     end
   cam.End3D2D()
 end
@@ -124,7 +123,7 @@ end
 local function DrawOnPlayer(pl)
   local me = LocalPlayer()
   local hasLineOfSight = me:GetEyeTrace().Entity == pl
-  local isCloser = me:GetPos():DistToSqr(pl:GetPos()) <= DistanceThreshold.Small[1]
+  local isCloser = me:GetPos():DistToSqr(pl:GetPos()) <= DistanceThreshold.Small
 
   local ringData = RadRing.EntityCache[pl]
   if not ringData then return end
@@ -156,7 +155,7 @@ end
 local function DrawOnNPC(npc)
   local me = LocalPlayer()
   local hasLineOfSight = me:GetEyeTrace().Entity == npc
-  local isCloser = me:GetPos():DistToSqr(npc:GetPos()) <= DistanceThreshold.Small[1]
+  local isCloser = me:GetPos():DistToSqr(npc:GetPos()) <= DistanceThreshold.Small
 
   local ringData = RadRing.EntityCache[npc]
   if not ringData then return end
@@ -190,7 +189,6 @@ end
 local function CacheEntLocally(ent)
   if RadRing.EntityCache[ent] then return end
   RadRing.EntityCache[ent] = {
-    -- size = ent:OBBMaxs():Length2D() + PersistentBaseRadius:GetFloat(),
     bgAlpha = defBgAlpha,
     otherAlpha = defOtherAlpha,
   }

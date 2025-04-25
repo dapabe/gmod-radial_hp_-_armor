@@ -8,9 +8,9 @@ NetIds = {
 if SERVER then return end
 --- Sqr2 | Vertices
 DistanceThreshold = {
-  Small = {2250000, 10}, -- 1500^2 
-  Medium = {4000000, 8}, -- 2000^2
-  Large = {6250000, 6}, -- 2500^2
+  Small = 2250000, -- 1500^2 
+  -- Medium = {4000000, 8}, -- 2000^2
+  -- Large = {6250000, 6}, -- 2500^2
 }
 
 ---@type iColorSchemes
